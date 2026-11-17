@@ -1,11 +1,36 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, MessageCircle } from "lucide-react";
 import { StatsCards } from "@/components/StatsCards";
 import { TokenCard } from "@/components/TokenCard";
+import { Token, DashboardStats } from "@/types";
 import { DEMO_STATS, DEMO_TOKENS } from "@/lib/demo-data";
 
 export default function DashboardPage() {
-  const latest = DEMO_TOKENS.slice(0, 6);
+  const [tokens, setTokens] = useState<Token[]>(DEMO_TOKENS.slice(0, 6));
+  const [stats, setStats] = useState<DashboardStats>(DEMO_STATS);
+  const [isLive, setIsLive] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/tokens");
+        if (!res.ok) throw new Error("fail");
+        const data = await res.json();
+        if (!cancelled) {
+          setTokens((data.tokens || DEMO_TOKENS).slice(0, 6));
+          setStats(data.stats || DEMO_STATS);
+          setIsLive(Boolean(data.isLive));
+        }
+      } catch {
+        /* keep demo */
+      }
+    }
+    load();
+  }, []);
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6">
@@ -13,6 +38,13 @@ export default function DashboardPage() {
         <div className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
           <MessageCircle className="h-3.5 w-3.5" />
           Telegram-first discovery
+          {isLive ? (
+            <span className="ml-1 rounded bg-accent/20 px-1.5 py-0.5 text-[10px]">LIVE</span>
+          ) : (
+            <span className="ml-1 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] text-warning">
+              DEMO
+            </span>
+          )}
         </div>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           Discover launches with{" "}
@@ -25,7 +57,7 @@ export default function DashboardPage() {
         </p>
       </section>
 
-      <StatsCards stats={DEMO_STATS} />
+      <StatsCards stats={stats} />
 
       <section>
         <div className="mb-4 flex items-center justify-between">
@@ -40,7 +72,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {latest.map((token) => (
+          {tokens.map((token) => (
             <TokenCard key={token.id} token={token} />
           ))}
         </div>
@@ -65,7 +97,7 @@ export default function DashboardPage() {
           </li>
           <li className="flex gap-2">
             <span className="text-accent">✓</span>
-            Demo data is clearly labeled. Live data requires configured API keys.
+            Live data from GeckoTerminal + DexScreener when available; otherwise clearly labeled demo.
           </li>
         </ul>
       </section>
