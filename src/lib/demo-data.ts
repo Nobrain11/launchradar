@@ -184,7 +184,7 @@ const rawTokens: Omit<Token, "telegramValidated" | "telegramNormalized" | "riskF
   },
 ];
 
-function buildRiskFlags(token: typeof rawTokens[0]): Token["riskFlags"] {
+function buildRiskFlags(token: (typeof rawTokens)[0]): Token["riskFlags"] {
   const flags: Token["riskFlags"] = [];
 
   flags.push({
@@ -218,22 +218,22 @@ function buildRiskFlags(token: typeof rawTokens[0]): Token["riskFlags"] {
   return flags;
 }
 
-export const DEMO_TOKENS: Token[] = rawTokens
-  .map((t) => {
-    const validation = validateTelegramUrl(t.socials.telegram);
-    if (!validation.valid) {
-      return null;
-    }
-    return {
-      ...t,
-      telegramValidated: true,
-      telegramNormalized: validation.normalized,
-      riskFlags: buildRiskFlags(t),
-    };
-  })
-  .filter((t): t is Token => t !== null);
+export const DEMO_TOKENS: Token[] = rawTokens.map((t) => {
+  const validation = validateTelegramUrl(t.socials.telegram);
+  // All demo tokens are constructed with valid public Telegram links
+  if (!validation.valid || !validation.normalized) {
+    throw new Error(`Demo token "${t.symbol}" failed Telegram validation`);
+  }
+  return {
+    ...t,
+    telegramValidated: true,
+    telegramNormalized: validation.normalized,
+    riskFlags: buildRiskFlags(t),
+  };
+});
 
-export const REJECTED_DEMO_COUNT = 14;
+// Tokens that would be rejected (for admin stats only, never shown in feed)
+export const REJECTED_DEMO_COUNT = 14; // simulated
 
 export const DEMO_STATS: DashboardStats = {
   totalLaunches: DEMO_TOKENS.length + REJECTED_DEMO_COUNT,
@@ -309,6 +309,7 @@ export function searchTokens(
 ): Token[] {
   let results = [...DEMO_TOKENS];
 
+  // Always enforce Telegram (already filtered in DEMO_TOKENS)
   results = results.filter((t) => t.telegramValidated);
 
   if (query.trim()) {
