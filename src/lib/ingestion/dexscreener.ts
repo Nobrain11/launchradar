@@ -83,7 +83,12 @@ export async function fetchLatestTokenProfiles(): Promise<DsRawToken[]> {
       if (type.includes("telegram") || url.includes("t.me") || url.includes("telegram.me")) {
         const v = validateTelegramUrl(url);
         if (v.valid) socials.telegram = v.normalized;
-      } else if (type.includes("twitter") || type.includes("x") || url.includes("x.com") || url.includes("twitter.com")) {
+      } else if (
+        type.includes("twitter") ||
+        type.includes("x") ||
+        url.includes("x.com") ||
+        url.includes("twitter.com")
+      ) {
         socials.twitter = url;
       } else if (type.includes("website") || type.includes("web")) {
         socials.website = url;
@@ -93,17 +98,42 @@ export async function fetchLatestTokenProfiles(): Promise<DsRawToken[]> {
     }
 
     if (!socials.telegram && profile.description) {
-      const match = profile.description.match(/https?:\/\/(t\.me|telegram\.me)\/[a-zA-Z0-9_]+/i);
+      const match = profile.description.match(
+        /https?:\/\/(t\.me|telegram\.me)\/[a-zA-Z0-9_]+/i
+      );
       if (match) {
         const v = validateTelegramUrl(match[0]);
         if (v.valid) socials.telegram = v.normalized;
       }
     }
 
+    // header is often a banner image URL — prefer description for name/symbol
+    let name = profile.tokenAddress.slice(0, 8);
+    let symbol = "???";
+    if (profile.description) {
+      const firstLine = profile.description.split("\n")[0].trim();
+      const tickerMatch = firstLine.match(/\(\$([A-Za-z0-9]{2,12})\)/);
+      if (tickerMatch) symbol = tickerMatch[1].toUpperCase();
+      name = firstLine.replace(/\s+/g, " ").slice(0, 48);
+      if (!tickerMatch) {
+        const words = firstLine.split(/\s+/).filter(Boolean);
+        if (
+          words[0] &&
+          words[0].length <= 12 &&
+          /^[A-Za-z0-9$]+$/.test(words[0].replace("$", ""))
+        ) {
+          symbol = words[0].replace("$", "").toUpperCase();
+        }
+      }
+    } else if (profile.header && !profile.header.startsWith("http")) {
+      name = profile.header.slice(0, 48);
+      symbol = profile.header.slice(0, 12).toUpperCase();
+    }
+
     results.push({
       chainId,
-      name: profile.header || profile.tokenAddress.slice(0, 8),
-      symbol: (profile.header || "???").slice(0, 12).toUpperCase(),
+      name,
+      symbol,
       address: profile.tokenAddress,
       priceUsd: 0,
       marketCap: 0,
